@@ -1,8 +1,8 @@
 # pyCDFTOOLS
 
-My adaptations [CDFTOOLS](https://github.com/meom-group/CDFTOOLS) for Python use but using the [xgcm](https://github.com/xgcm) formalism via [xnemogcm](https://github.com/rcaneill/xnemogcm), with some attempt to mirror the functionality and coding structure of CDFTOOLS; this is really more of a wrapper on top of xnemogcm. The main reason for doing this is because I don't like doing analysis through Fortran...
+My adaptations [CDFTOOLS](https://github.com/meom-group/CDFTOOLS) for Python analysing NEMO data, but using the [xgcm](https://github.com/xgcm) formalism via [xnemogcm](https://github.com/rcaneill/xnemogcm), with some attempt to mirror the functionality and coding structure of CDFTOOLS; this really is just a wrapper on top of xnemogcm. The main reason for doing this is because I don't like doing analysis through Fortran... but of course the extra functionality with DASK (chunking and parallelism) is very desirable for larger dataset analysis.
 
-This is split out from whatever is in my other [NEMO repository](https://github.com/julianmak/NEMO-related/tree/master), which is a Fortran-like way of writing things.
+This is split out from whatever is in my other [NEMO repository](https://github.com/julianmak/NEMO-related/tree/master), which is a Fortran-like way of writing things. Those won't be updated anymore.
 
 ## To do:
 
