@@ -9,13 +9,13 @@ This is split out from whatever is in my other [NEMO repository](https://github.
 - [ ] testing of DASK chunking and parallel computation
 - [ ] examples with DASK functionality
 - [ ] upload of sample notebooks
-- [ ] upload of brainfart notebooks detailing what things to do (and not t do) for a FAQ later
+- [ ] upload of brainfart notebooks detailing what things to do (and not to do) for a FAQ later
 - [ ] data pre-processing for use with xnemogcm
 - [ ] upload of sample data (notably outputs from CDFTOOLS) and developing testing workflow
 - [ ] update references to NEMO-related readthedocs
 - [ ] set up some containers of sorts?
 - [ ] testing probably in UNAGI, Andrew Styles' Weddell gyre model, ORCA2 and 1, maybe GYRE_PISCES 
-- [x] claim the repository name
+- [x] claim the repository name 8-)
 
 ## Status
 
