@@ -1,0 +1,36 @@
+## 25 Nov 2023
+
+! created an "in_out" module for saving variables etc.
+  ?? probably want to turn everything into a class and imbue instead as
+     "ds.out_netcdf(varname=blah, filename=blah)" or whatever
+
+* probably want to imbue the following onto the resulting dataset objects if
+  they don't exist by default
+  -- co-ordinate files
+  -- time
+  -- description + attributes (including "standard_name" at a minimum)
+
+* so far only going to have a few routines (probably curl, div, moc, eke) to
+  test what things to pass and imbue onto the the resulting dataset object
+  !? going to be writing subroutines rather than as a class with imbued
+     functions, to leave flexibility for module namings
+     -- otherwise will have to detect variable names, not flexible maybe
+     -- but relies on the user to know what to throw in
+
+* not sure how structure is going to work
+  -- not pythonic to have one function per file (somewhat as in CDFTOOLS), so
+     probably something like
+     -- analysis.py   (the calculation based subroutines)
+        -- not sure about this, because the file will probably be huge
+     -- eos.py        (for equation of state things)
+     -- preprocess.py (for bullying data into a form xnemogcm understands)
+     -- plot.py       (generic plotting commands)
+     -- cosmetics.py  (cosmetic things, e.g. add in a clock)
+  -- so would do
+  
+     from pyCDFTOOLS.analysis import *
+     moc = cdfmoc(whatever)
+
+## 21 Nov 2023
+
+* creation of the log
