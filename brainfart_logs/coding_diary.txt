@@ -1,3 +1,18 @@
+## 11 Oct 2024
+
+* probably want to imbue the following onto the resulting dataset objects 
+  REGARDLESS of whether they exist or not
+  -- co-ordinate files
+  -- time
+  -- description + attributes (including "standard_name" at a minimum)
+
+* seems to have some clashing issues currently if there is a mix in time freq
+  files (e.g. "10y_grid_T" and "1y_surf_T" in the same ds object)
+  -- probably best to separate the two of them for now
+     -- uses slightly different loading commands
+  -- to avoid a "t_bound" clash, best to just pass a ***per timeframe***
+     assuming that the provided "ds" file has one frame per file (ugly, TO TIDY)
+
 ## 25 Nov 2023
 
 ! created an "in_out" module for saving variables etc.
