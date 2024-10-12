@@ -24,16 +24,38 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
     By default attributes assume the inputs are *velocities*, so the output is 
     a relative vorticity. Modify this as appropriate if need be.
     """
+    
+    # 1) check if W or T variable first
+    var_T, var_W = False, False
+    if "z_c" in list(un.coords):
+        var_T = True
+        ind = un["z_c"]
+    elif "z_f" in list(un.coords):
+        var_W = True
+        ind = un["z_f"]
+    else:
+        print("=== WARNING: no z_c information found, assume it is a T-grid variable ===")
+        var_T = True
+        ind = 0
 
     # 1) calculation, puts the output onto the F-points
-    socurl  = (  grid.diff(vn * ds.e2v, "X", **bd) 
-               - grid.diff(un * ds.e1u, "Y", **bd) 
-              ) / (ds.e1f * ds.e2f) * ds.fmask[jk, :, :]
+    if var_T:
+        socurl  = (  grid.diff(vn * ds.e2v, "X", **bd) 
+                   - grid.diff(un * ds.e1u, "Y", **bd) 
+                  ) / (ds.e1f * ds.e2f) * ds.fmask.isel(z_c=ind)
+
+    elif var_W:
+        socurl  = (  grid.diff(vn * ds.e2v, "X", **bd) 
+                   - grid.diff(un * ds.e1u, "Y", **bd) 
+                  ) / (ds.e1f * ds.e2f) * ds.fmask.isel(z_f=ind)
                
     # end) imbue some useful variables/attributes
     socurl["glamf"] = ds.glamf
     socurl["gphif"] = ds.gphif
-    socurl["gdept_1d"] = ds.gdept_1d[jk]
+    socurl["gdept_1d"] = ds.gdept_1d[ind]
+    socurl = socurl.rename({"glamf"    : "glam",
+                            "gphif"    : "gphi",
+                            "gdept_1d" : "gdep"})
     socurl.attrs["standard_name"] = "socurl"
     socurl.attrs["long_name"]     = "Relative_vorticity (curl)"
     socurl.attrs["units"]         = "s-1"
@@ -67,7 +89,9 @@ def cdfmoc(grid, ds, vn, **bd):
     
     # end) imbue some useful variables/attributes
     moc["gphiv"] = ds.gphiv[:, 1]  # placeholder only
-    moc["gdepw_1d"] = ds.gdepw_1d
+    moc["gdepw_1d"] = ds.gdepw_1d[:]
+    moc = moc.rename({"gphiv"    : "gphi",
+                      "gdepw_1d" : "gdep"})
     moc.attrs["standard_name"] = "moc"
     moc.attrs["long_name"]     = "Meridional Overturning Circulation (avg at fixed depth)"
     moc.attrs["units"]         = "Sv"
@@ -116,6 +140,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.tmask.isel(z_f=ind)
         zonalmean = (da * mask).sum(dim="x_c") / (ds.e1t * mask).sum(dim="x_c")
         zonalmean["gphit"] = ds["gphit"][:, 1]  # placeholder only
+        zonalmean = zonalmean.rename({"gphit" : "gphi"})
  
     # U-variable
     elif all(x in list(da.dims) for x in ["x_f", "y_c"]):
@@ -125,6 +150,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.umask.isel(z_f=ind)
         zonalmean = (da * mask).sum(dim="x_f") / (ds.e1u * mask).sum(dim="x_f")
         zonalmean["gphiu"] = ds["gphiu"][:, 1]  # placeholder only
+        zonalmean = zonalmean.rename({"gphiu" : "gphi"})
 
     # V-variable
     elif all(x in list(da.dims) for x in ["x_c", "y_f"]):
@@ -134,6 +160,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.vmask.isel(z_f=ind)
         zonalmean = (da * mask).sum(dim="x_c") / (ds.e1v * mask).sum(dim="x_c")
         zonalmean["gphiv"] = ds["gphiv"][:, 1]  # placeholder only
+        zonalmean = zonalmean.rename({"gphiv" : "gphi"})
 
     # F-variable
     elif all(x in list(da.dims) for x in ["x_f", "y_f"]):  
@@ -143,6 +170,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.fmask.isel(z_f=ind) 
         zonalmean = (da * mask).sum(dim="x_f") / (ds.e1f * mask).sum(dim="x_f")
         zonalmean["gphif"] = ds["gphif"][:, 1]  # placeholder only
+        zonalmean = zonalmean.rename({"gphif" : "gphi"})
         
     else:
         print("=== WARNING: no valid combo of (x,y) dimension grabbed, CHECK ===")
@@ -153,8 +181,10 @@ def cdfzonalmean(grid, ds, da, **bd):
     zonalmean.attrs = da.attrs
     if "z_c" in list(da.dims):
         zonalmean["gdept_1d"] = ds["gdept_1d"][ind]
+        zonalmean = zonalmean.rename({"gdept_1d" : "gdep"})
     elif "z_f" in list(da.dims):
         zonalmean["gdepw_1d"] = ds["gdepw_1d"][ind]
+        zonalmean = zonalmean.rename({"gdepw_1d" : "gdep"})
         
     return zonalmean
     

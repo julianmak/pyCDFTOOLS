@@ -1,4 +1,26 @@
+## 12 Oct 2024
+
+* renamed the imbued variables for convenienice purposes
+  -- e.g. gdept_1d -> gdep
+  -- e.g. gphiv    -> gphi
+     -- if we do
+     
+        da.rename(whatever)
+        
+        then it does the renaming but doesn't save the new object; need instead
+
+        da = da.rename(whatever)
+
+* did some dimension checks to have the right dimenion sums for zonalmean
+
 ## 11 Oct 2024
+
+* somewhat ugly way needed (?) to write zonalmean
+  -- currently brute force find the grid variable
+  -- would be much cleaner if the location attribute was imbued into the loaded
+     variable at the loading time, then can just read it off rather than do a
+     search
+  ?? doesn't quite handle number of dimenions properly yet
 
 * probably want to imbue the following onto the resulting dataset objects 
   REGARDLESS of whether they exist or not
