@@ -8,6 +8,8 @@ mirror CDFTOOLS (e.g. cdfmoc computes the moc at fixed height etc.)
 # TODO: only going to write a few subroutines, in order to see how imbuement and 
 #       coding structure is going to work
 
+# TODO: add check for variable having right dimensions?
+
 #-------------------------------------------------------------------------------
     
 def cdfcurl(grid, ds, un, vn, jk=0, **bd):
@@ -15,8 +17,8 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
     of relative vorticity) in a way consistent with the NEMO finite volume 
     discretisation. 
     
-    Expects a 2d field input. Computes this along ALL time by default; this is 
-    not a necessarily a problem until evaluation.
+    Expects a 2d field input on U and V-grid. Computes this along ALL time by 
+    default; this is not a necessarily a problem until evaluation.
     
     *** NOTE ***
     By default attributes assume the inputs are *velocities*, so the output is 
@@ -28,7 +30,7 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
                - grid.diff(un * ds.e1u, "Y", **bd) 
               ) / (ds.e1f * ds.e2f) * ds.fmask[jk, :, :]
                
-    # imbue some useful variables/attributes
+    # end) imbue some useful variables/attributes
     socurl["glamf"] = ds.glamf
     socurl["gphif"] = ds.gphif
     socurl["gdept_1d"] = ds.gdept_1d[jk]
@@ -44,8 +46,8 @@ def cdfmoc(grid, ds, vn, **bd):
     """Computes the meridional overturning circulation in depth co-ordinates,
        in a way consistent with CDFTOOLS/cdfmoc
     
-    Expects a 3d field input. Computes this along ALL time by default; this is 
-    not a necessarily a problem until evaluation.
+    Expects a 3d field input on V-grid. Computes this along ALL time by default; 
+    this is not a necessarily a problem until evaluation.
     
     *** NOTE ***
     By default attributes assume the inputs are *velocities*, and the output is
@@ -63,7 +65,7 @@ def cdfmoc(grid, ds, vn, **bd):
     
     moc -= moc.isel({"z_f" : -1})
     
-    # imbue some useful variables/attributes
+    # end) imbue some useful variables/attributes
     moc["gphiv"] = ds.gphiv[:, 1]  # placeholder only
     moc["gdepw_1d"] = ds.gdepw_1d
     moc.attrs["standard_name"] = "moc"
@@ -71,3 +73,96 @@ def cdfmoc(grid, ds, vn, **bd):
     moc.attrs["units"]         = "Sv"
 
     return moc
+    
+#-------------------------------------------------------------------------------
+
+def cdfzonalmean(grid, ds, da, **bd):
+    """Computes the zonal mean (really the mean in the i-dimension).
+    
+    Do not include the mask, in order for inheriting attributes. Computes along 
+    ALL other dimensions by default; this is not a necessarily a problem until 
+    evaluation.
+    
+    *** NOTE ***
+    Inhereits the attributes of the input field. Modify this as appropriate if 
+    need be.
+    """
+    
+    # 1) check if W or T variable first
+    var_T, var_W = False, False
+    if "z_c" in list(da.coords):
+        var_T = True
+        ind = da["z_c"]
+    elif "z_f" in list(da.coords):
+        var_W = True
+        ind = da["z_f"]
+    else:
+        print("=== WARNING: input array should have some imbued z_[cf] information, but not found ===")
+        print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
+        return np.nan
+    
+    # 2) do integral of variable and metric along i-direction, then divide each 
+    #    other (so i-mean)
+    # W-variables treated as if it were T-variables
+    
+    # UGLY: consider doing the imbuement of the variable grid location at the 
+    #       point when the files are loaded so it can be read off...
+    
+    # T-variable
+    if all(x in list(da.dims) for x in ["x_c", "y_c"]):
+        if var_T:
+            mask = ds.tmask.isel(z_c=ind)
+        elif var_W:
+            mask = ds.tmask.isel(z_f=ind)
+        zonalmean = (da * mask).sum(dim="x_c") / (ds.e1t * mask).sum(dim="x_c")
+        zonalmean["gphit"] = ds["gphit"][:, 1]  # placeholder only
+ 
+    # U-variable
+    elif all(x in list(da.dims) for x in ["x_f", "y_c"]):
+        if var_T:
+            mask = ds.umask.isel(z_c=ind)
+        elif var_W:
+            mask = ds.umask.isel(z_f=ind)
+        zonalmean = (da * mask).sum(dim="x_f") / (ds.e1u * mask).sum(dim="x_f")
+        zonalmean["gphiu"] = ds["gphiu"][:, 1]  # placeholder only
+
+    # V-variable
+    elif all(x in list(da.dims) for x in ["x_c", "y_f"]):
+        if var_T:
+            mask = ds.vmask.isel(z_c=ind)
+        elif var_W:
+            mask = ds.vmask.isel(z_f=ind)
+        zonalmean = (da * mask).sum(dim="x_c") / (ds.e1v * mask).sum(dim="x_c")
+        zonalmean["gphiv"] = ds["gphiv"][:, 1]  # placeholder only
+
+    # F-variable
+    elif all(x in list(da.dims) for x in ["x_f", "y_f"]):  
+        if var_T:
+            mask = ds.fmask.isel(z_c=ind)
+        elif var_W:
+            mask = ds.fmask.isel(z_f=ind) 
+        zonalmean = (da * mask).sum(dim="x_f") / (ds.e1f * mask).sum(dim="x_f")
+        zonalmean["gphif"] = ds["gphif"][:, 1]  # placeholder only
+        
+    else:
+        print("=== WARNING: no valid combo of (x,y) dimension grabbed, CHECK ===")
+        print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
+        return np.nan
+        
+    # end) imbue some useful variables/attributes
+    zonalmean.attrs = da.attrs
+    if "z_c" in list(da.dims):
+        zonalmean["gdept_1d"] = ds["gdept_1d"][ind]
+    elif "z_f" in list(da.dims):
+        zonalmean["gdepw_1d"] = ds["gdepw_1d"][ind]
+        
+    return zonalmean
+    
+    
+    
+    
+    
+    
+    
+    
+    
