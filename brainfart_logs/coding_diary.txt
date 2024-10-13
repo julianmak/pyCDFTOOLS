@@ -1,6 +1,11 @@
 
 ## design choices
 
+* by default the subroutines take into account of data being given as a sub-set
+  -- load subset then compute, rather than compute all then subset
+     -- probably less demanding on compute time and memory
+     -- needs more code and checks of variable locations
+
 * the co-ordinate files are inherited by default, and not renamed
   -- could do e.g. "gdept_1d -> gdep", but code is then messy
      -- might be a good thing to force the user to think about which location
