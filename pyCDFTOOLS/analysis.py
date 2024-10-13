@@ -5,6 +5,7 @@ Module to house the subroutines that focuses on analysing the data. Naming to
 mirror CDFTOOLS (e.g. cdfmoc computes the moc at fixed height etc.)
 """
 
+import numpy as np
 import xnemogcm as xn
 import xgcm as xgcm
 
