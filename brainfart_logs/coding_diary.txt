@@ -1,3 +1,23 @@
+## 13 Oct 2024
+
+* probably get rid of the e.g. "gdept_1d -> gdep" and just sort that out during
+  the plotting stage
+
+* attempting to write a vertical co-ordinate transform
+  -- using the xgcm "grid.transform" function
+  -- need to recreate a grid and have "outer"
+     -- split out a "coord" variable, to be modified within subroutine only when 
+        these kind of routines are called
+     -- recreated "coord" to have consistency with NEMO convention
+        -- "x_f" and "y_f" are to the RIGHT of "x_c" and "y_c"
+           (since e.g. "x_f" > "x_c" for given index)
+        -- "z_f" because of the plus sign is to the LEFT of "z_c" 
+           (since "z_f" < " z_c" for a given index)
+  -- judicious ds.transpose commands to force (t, z, y, x) ordering
+  
+* add in queries for the indices within the subroutines for the masks based on
+  the input DataArray, so to avoid computing everything by default
+
 ## 12 Oct 2024
 
 * renamed the imbued variables for convenienice purposes

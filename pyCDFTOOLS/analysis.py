@@ -5,6 +5,9 @@ Module to house the subroutines that focuses on analysing the data. Naming to
 mirror CDFTOOLS (e.g. cdfmoc computes the moc at fixed height etc.)
 """
 
+import xnemogcm as xn
+import xgcm as xgcm
+
 # TODO: only going to write a few subroutines, in order to see how imbuement and 
 #       coding structure is going to work
 
@@ -50,12 +53,6 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
                   ) / (ds.e1f * ds.e2f) * ds.fmask.isel(z_f=z_ind)
                
     # end) imbue some useful variables/attributes
-    socurl["glamf"] = ds.glamf
-    socurl["gphif"] = ds.gphif
-    socurl["gdept_1d"] = ds.gdept_1d[z_ind]
-    socurl = socurl.rename({"glamf"    : "glam",
-                            "gphif"    : "gphi",
-                            "gdept_1d" : "gdep"})
     socurl.attrs["standard_name"] = "socurl"
     socurl.attrs["long_name"]     = "Relative_vorticity (curl)"
     socurl.attrs["units"]         = "s-1"
@@ -90,8 +87,6 @@ def cdfmoc(grid, ds, vn, **bd):
     # end) imbue some useful variables/attributes
     moc["gphiv"] = ds.gphiv[:, 1]  # placeholder only
     moc["gdepw_1d"] = ds.gdepw_1d
-    moc = moc.rename({"gphiv"    : "gphi",
-                      "gdepw_1d" : "gdep"})
     moc.attrs["standard_name"] = "moc"
     moc.attrs["long_name"]     = "Meridional Overturning Circulation (avg at fixed depth)"
     moc.attrs["units"]         = "Sv"
@@ -101,7 +96,8 @@ def cdfmoc(grid, ds, vn, **bd):
 #-------------------------------------------------------------------------------
 
 def cdfzonalmean(grid, ds, da, **bd):
-    """Computes the zonal mean (really the mean in the i-dimension).
+    """Computes the zonal mean (really the mean in the i-dimension). Assumes at
+    least 2d with x and y dimension.
     
     Do not include the mask, in order for inheriting attributes. Computes along 
     ALL other dimensions by default; this is not a necessarily a problem until 
@@ -133,7 +129,7 @@ def cdfzonalmean(grid, ds, da, **bd):
     #       point when the files are loaded so it can be read off...
     
     # T-variable
-    if all(x in list(da.dims) for x in ["x_c", "y_c"]):
+    if all(x in list(da.coords) for x in ["x_c", "y_c"]):
         x_ind = da["x_c"].values.astype('int')
         y_ind = da["y_c"].values.astype('int')
         e1 = ds.e1t.isel(y_c=y_ind, x_c=x_ind)
@@ -143,46 +139,42 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.tmask.isel(z_f=z_ind, y_c=y_ind, x_c=x_ind)
         zonalmean = (da * mask).sum(dim="x_c") / (e1 * mask).sum(dim="x_c")
         zonalmean["gphit"] = ds["gphit"].isel(y_c=y_ind, x_c=1)  # placeholder only
-        zonalmean = zonalmean.rename({"gphit" : "gphi"})
  
     # U-variable
-    elif all(x in list(da.dims) for x in ["x_f", "y_c"]):
+    elif all(x in list(da.coords) for x in ["x_f", "y_c"]):
         x_ind = da["x_f"].values.astype('int')
         y_ind = da["y_c"].values.astype('int')
         e1 = ds.e1u.isel(y_c=y_ind, x_f=x_ind)
         if var_T:
-            mask = ds.umask.isel(z_c=z_ind)
+            mask = ds.umask.isel(z_c=z_ind, y_c=y_ind, x_f=x_ind)
         elif var_W:
-            mask = ds.umask.isel(z_f=z_ind)
+            mask = ds.umask.isel(z_f=z_ind, y_c=y_ind, x_f=x_ind)
         zonalmean = (da * mask).sum(dim="x_f") / (e1 * mask).sum(dim="x_f")
-        zonalmean["gphiu"] = ds["gphiu"][:, 1]  # placeholder only
-        zonalmean = zonalmean.rename({"gphiu" : "gphi"})
+        zonalmean["gphiu"] = ds["gphiu"].isel(y_c=y_ind, x_f=1)  # placeholder only
 
     # V-variable
-    elif all(x in list(da.dims) for x in ["x_c", "y_f"]):
+    elif all(x in list(da.coords) for x in ["x_c", "y_f"]):
         x_ind = da["x_c"].values.astype('int')
         y_ind = da["y_f"].values.astype('int')
         e1 = ds.e1v.isel(y_f=y_ind, x_c=x_ind)
         if var_T:
-            mask = ds.vmask.isel(z_c=z_ind)
+            mask = ds.vmask.isel(z_c=z_ind, y_f=y_ind, x_c=x_ind)
         elif var_W:
-            mask = ds.vmask.isel(z_f=z_ind)
+            mask = ds.vmask.isel(z_f=z_ind, y_f=y_ind, x_c=x_ind)
         zonalmean = (da * mask).sum(dim="x_c") / (e1 * mask).sum(dim="x_c")
-        zonalmean["gphiv"] = ds["gphiv"][:, 1]  # placeholder only
-        zonalmean = zonalmean.rename({"gphiv" : "gphi"})
+        zonalmean["gphiv"] = ds["gphiv"].isel(y_f=y_ind, x_c=1)  # placeholder only
 
     # F-variable
-    elif all(x in list(da.dims) for x in ["x_f", "y_f"]):  
+    elif all(x in list(da.coords) for x in ["x_f", "y_f"]):  
         x_ind = da["x_f"].values.astype('int')
         y_ind = da["y_f"].values.astype('int')
         e1 = ds.e1f.isel(y_f=y_ind, x_f=x_ind)
         if var_T:
-            mask = ds.fmask.isel(z_c=z_ind)
+            mask = ds.fmask.isel(z_c=z_ind, y_f=y_ind, x_f=x_ind)
         elif var_W:
-            mask = ds.fmask.isel(z_f=z_ind) 
+            mask = ds.fmask.isel(z_f=z_ind, y_f=y_ind, x_f=x_ind) 
         zonalmean = (da * mask).sum(dim="x_f") / (e1 * mask).sum(dim="x_f")
-        zonalmean["gphif"] = ds["gphif"][:, 1]  # placeholder only
-        zonalmean = zonalmean.rename({"gphif" : "gphi"})
+        zonalmean["gphif"] = ds["gphif"].isel(y_f=y_ind, x_f=1)  # placeholder only
         
     else:
         print("=== WARNING: no valid combo of (x,y) dimension grabbed, CHECK ===")
@@ -191,20 +183,15 @@ def cdfzonalmean(grid, ds, da, **bd):
         
     # end) imbue some useful variables/attributes
     zonalmean.attrs = da.attrs
-    if "z_c" in list(da.dims):
-        zonalmean["gdept_1d"] = ds["gdept_1d"][z_ind]
-        zonalmean = zonalmean.rename({"gdept_1d" : "gdep"})
-    elif "z_f" in list(da.dims):
-        zonalmean["gdepw_1d"] = ds["gdepw_1d"][z_ind]
-        zonalmean = zonalmean.rename({"gdepw_1d" : "gdep"})
         
     return zonalmean
     
 #-------------------------------------------------------------------------------
 
-def cdfz2sig(ds, da_in_z, sigma, sigma_coord, **bd):
+def cdfz2sig(ds, da, sigma, sigma_coord, method="linear", **bd):
     """Performs a vertical co-ordinate transformation; sigma is just a 
-    placeholder, can be density, temperature, other depth, etc.
+    placeholder, can be density, temperature, other depth, etc. By default does
+    a linear interpolation.
     
     Do not include the mask, in order for inheriting attributes. Computes along 
     ALL other dimensions by default; this is not a necessarily a problem until 
@@ -225,7 +212,82 @@ def cdfz2sig(ds, da_in_z, sigma, sigma_coord, **bd):
              }
     grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False)
     
-    da_in_sigma = np.nan
+    # 1) check if W or T variable first and grab some indices
+    var_T, var_W = False, False
+    if "z_c" in list(da.coords):
+        var_T = True
+        z_ind = da["z_c"].values.astype('int')
+    elif "z_f" in list(da.coords):
+        var_W = True
+        z_ind = (da["z_f"].values + 1).astype('int')  # because shifted down
+    else:
+        print("=== WARNING: no z information found! ===")
+        print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
+        return np.nan
+        
+    # T-variable
+    if all(x in list(da.coords) for x in ["x_c", "y_c"]):
+        x_ind = da["x_c"].values.astype('int')
+        y_ind = da["y_c"].values.astype('int')
+        if var_T:
+            mask = ds.tmask.isel(z_c=z_ind, y_c=y_ind, x_c=x_ind)
+        elif var_W:
+            mask = ds.tmask.isel(z_f=z_ind, y_c=y_ind, x_c=x_ind)
+ 
+    # U-variable
+    elif all(x in list(da.coords) for x in ["x_f", "y_c"]):
+        x_ind = da["x_f"].values.astype('int')
+        y_ind = da["y_c"].values.astype('int')
+        if var_T:
+            mask = ds.umask.isel(z_c=z_ind, y_c=y_ind, x_f=x_ind)
+        elif var_W:
+            mask = ds.umask.isel(z_f=z_ind,y_c=y_ind, x_f=x_ind)
+
+    # V-variable
+    elif all(x in list(da.coords) for x in ["x_c", "y_f"]):
+        x_ind = da["x_c"].values.astype('int')
+        y_ind = da["y_f"].values.astype('int')
+        if var_T:
+            mask = ds.vmask.isel(z_c=z_ind, y_f=y_ind, x_c=x_ind)
+        elif var_W:
+            mask = ds.vmask.isel(z_f=z_ind, y_f=y_ind, x_c=x_ind)
+
+    # F-variable
+    elif all(x in list(da.coords) for x in ["x_f", "y_f"]):  
+        x_ind = da["x_f"].values.astype('int')
+        y_ind = da["y_f"].values.astype('int')
+        if var_T:
+            mask = ds.fmask.isel(z_c=z_ind, y_f=y_ind, x_f=x_ind)
+        elif var_W:
+            mask = ds.fmask.isel(z_f=z_ind, y_f=y_ind, x_f=x_ind)
+        
+    else:
+        print("=== WARNING: no valid combo of (x,y) dimension grabbed, CHECK ===")
+        print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
+        return np.nan
+        
+    # 2) do transformation
+    if method=="conservative":  # extra steps to trigger fewer warnings
+        sigma_var = grid.interp_like(sigma, da)
+        sigma = grid.interp(sigma_var, "Z", boundary="extend")
+
+    da_in_sigma = grid.transform(da * mask, "Z", sigma_coord, 
+                                 target_data=sigma, 
+                                 method=method)
+                                 
+    # one liner for conservative transformation
+    # (a ton of warnings are triggered if done this way)
+    # da_in_sigma = grid.transform(da * mask, 'Z', sigma_coord, 
+    #                              target_data=sigma,
+    #                              method=method)
+        
+    # end) imbue some useful variables/attributes
+    da_in_sigma.attrs = da.attrs
+    da_in_sigma = da_in_sigma.rename({sigma.name : "sigma"})
+    if "t" in da_in_sigma.dims:
+        da_in_sigma = da_in_sigma.transpose("t", "sigma", ...)
+    else:
+        da_in_sigma = da_in_sigma.transpose("sigma", ...)
 
     return da_in_sigma
     
