@@ -6,18 +6,19 @@
      -- probably less demanding on compute time and memory
      -- needs more code and checks of variable locations
 
-* the co-ordinate files are inherited by default, and not renamed
+* the co-ordinate files are inherited and NOT renamed
   -- could do e.g. "gdept_1d -> gdep", but code is then messy
      -- might be a good thing to force the user to think about which location
         things should be anyway
      -- can easily be done outside or as an extra post-processing routine if
         need be, and only really affects plotting routines etc.
 
-* masks are called in the subroutines, rather than asking for masked data
-  -- more robust, but code more wieldy, and assumes mask exists
+* masks are called IN THE SUBROUTINES, rather than asking for masked data as
+  input
+  -- more robust, but code more unwieldy, and assumes mask exists
   -- if not, cleaner code, but places responsibility on user
      -- doesn't work for some routines (e.g., zonal mean where the length is
-        needed; could provide a masked length for that I suppose)
+        needed; could ask for masked length as input I suppose)
   
 * coding standard NOT conforming to NEMO
   -- that's for FORTRAN so there is no strong reason for the Python 
@@ -27,6 +28,11 @@
         -- some of the algorithm details will be different (e.g. cdfmocsig does 
         not average the tracers on to V points, though it probably should be as 
         remarked in CDFTOOLS by J-M Molines [JMM])
+
+## 17 Apr 2025
+
+* putting bits of cdfsigmamoc together
+  -- computation of a mean isoypcnal depth a bit janky, to do better
 
 ## 13 Oct 2024
 
