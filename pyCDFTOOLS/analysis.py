@@ -77,17 +77,24 @@ def cdfmoc(grid, ds, vn, **bd):
     # input is (z, y, x), grid_V, units of m s-1
 
     # 1) zonal integral and multiply by e3v; (z, y), grid_V and units of m3 s-1
+    # TODO: should have a vmask here for consistency
+    #       either 1) ask for a "voce_e3v" from the user 
+    #              2) ask for a "vvl" flag, if true and "e3v" is a variable,
+    #                 load it from an input da, if not, warning and fall back to
+    #                 "e3v_0"
     moc = (vn * ds.e1v * ds.e3v_0).sum(dim="x_c")
 
     # 2) cumulative sum in k from TOP; sum in Z puts it onto z_f, units of Sv
     #    then removes the total integral (the last entry)
     moc = grid.cumsum(moc, axis="Z", **bd) / 1e6
-    
     moc -= moc.isel({"z_f" : -1})
     
     # end) imbue some useful variables/attributes
-    moc["gphiv"] = ds.gphiv[:, 1]  # placeholder only
+    
     moc["gdepw_1d"] = ds.gdepw_1d
+    # TODO: below imbuement is inconsistent if the input chunk is sliced in space
+    #       throw a warning or output it properly
+    moc["gphiv"] = ds.gphiv[:, 1]  # placeholder only
     moc.attrs["standard_name"] = "moc"
     moc.attrs["long_name"]     = "Meridional Overturning Circulation (avg at fixed depth)"
     moc.attrs["units"]         = "Sv"
@@ -216,6 +223,9 @@ def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
         print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
         return np.nan
         
+    # TODO: pretty sure if "var_W = True" then the masks should be W masks,
+    #       but these are not output by default, so the "var_W" parts are redundant
+        
     # T-variable
     if all(x in list(da.coords) for x in ["x_c", "y_c"]):
         x_ind = da["x_c"].values.astype('int')
@@ -303,6 +313,14 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
     need be.
     """
     
+    # TODO: either 1) ask for a "voce_e3v" from the user <--- this one for now
+    #              2) ask for a "vvl" flag, if true and "e3v" is a variable,
+    #                 load it from an input da, if not, warning and fall back to
+    #                 "e3v_0"
+    
+    # TODO: input "grid" doesn't actually get used since it gets overwritten
+    #       added so far only for consistency of inputs; do this better
+    
     # 0) define a temporary coords and grid for exclusive use with 
     #    xgcm.transform (needs "periodic=False" and an "outer" definition for
     #    the conservative transform option)
@@ -324,9 +342,12 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
         if disp:
             print(f"working at t = {kt+1} / {nt}...")
             
-        # interpolate onto the V grid (CDFTOOLS doesn't do this?)
+        # interpolate onto the V grid (CDFTOOLS doesn't do this...?)
         sigma_var = grid.interp(sigma.isel(t=kt), ['Y'], boundary='extend')
         # don't select the last one since it's land, then z_f makes sense
+        # TODO: this will fail if input "da" is not full dataset because of
+        #       shape mismatch; could copy some of the z2sig code in for pulling
+        #       out the mask sizes
         v_trans = (da * ds.vmask).isel(t=kt, z_c=slice(0, -1))
         v_trans = v_trans.fillna(0.).rename('v_trans')
         
@@ -345,10 +366,14 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
                                       method=method, **bd) / nt
 
     sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c").cumsum("sigma") / 1e6
-    # TODO: flip the dimension? sigma_moc -= sigma_moc.isel({"sigma" : -1})
+    # TODO: flip the dimension depending on the choice of sigma variable? 
+    #       sigma_moc -= sigma_moc.isel({"sigma" : -1})
         
     # end) imbue some useful variables/attributes
     sigma_moc.attrs = da.attrs
+    
+    # TODO: below imbuement is inconsistent if the input chunk is sliced in space
+    #       throw a warning or output it properly
     sigma_moc["gphiv"] = ds.gphiv[:, 1]  # placeholder imbuement
     if "t" in sigma_moc.dims:
         sigma_moc = sigma_moc.transpose("t", "sigma", ...)
