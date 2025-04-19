@@ -28,6 +28,21 @@
         -- some of the algorithm details will be different (e.g. cdfmocsig does 
         not average the tracers on to V points, though it probably should be as 
         remarked in CDFTOOLS by J-M Molines [JMM])
+        
+## 19 Apr 2025
+
+* first pass of a cdfsigmamoc
+  -- whole package here
+     !! was going to split out the time-averaging in sigma_coord for computing
+        the epe for example, probably just do that elsewhere
+     !! expecting a "voce_e3v" input, thus pre-processing required
+        -- there is no "e3v" read in the subroutines themselves, unlike in
+           CDFTOOLS
+        -- justification here is that sometimes you have "voce_e3t" already,
+           then it doesn't make sense to multiply/divide by it once more
+        -- if not, then can approximate it by "e3v_0" if need be, but that's
+           a user choice
+  !! got some janky imbuements, probably want to fix those at some point...
 
 ## 17 Apr 2025
 

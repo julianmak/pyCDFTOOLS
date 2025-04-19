@@ -189,12 +189,12 @@ def cdfzonalmean(grid, ds, da, **bd):
     
 #-------------------------------------------------------------------------------
 
-def cdfz2sig(ds, da, sigma, sigma_coord, method="linear", **bd):
+def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
     """Performs a vertical co-ordinate transformation; sigma is just a 
     placeholder, can be density, temperature, other depth, etc. By default does
     a linear interpolation.
     
-    Do not include the mask, in order for inheriting attributes. Computes along 
+    Do not include the mask, in order for inheriting attributes. Computes over 
     ALL other dimensions by default; this is not a necessarily a problem until 
     evaluation.
     
@@ -202,16 +202,6 @@ def cdfz2sig(ds, da, sigma, sigma_coord, method="linear", **bd):
     Inhereits the attributes of the input field. Modify this as appropriate if 
     need be.
     """
-    
-    # 0) define a temporary coords and grid for exclusive use with 
-    #    xgcm.transform (needs "periodic=False" and an "outer" definition for
-    #    the conservative transform option)
-    coords = {"X": {"right" : "x_f", "center":"x_c"},   # xU > xT
-              "Y": {"right" : "y_f", "center":"y_c"},   # yV > yT
-              "Z": {"center": "z_c", "outer" :"z_f"},
-              "T": {"center": "t"},
-             }
-    grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False)
     
     # 1) check if W or T variable first and grab some indices
     var_T, var_W = False, False
@@ -292,6 +282,83 @@ def cdfz2sig(ds, da, sigma, sigma_coord, method="linear", **bd):
 
     return da_in_sigma
     
+#-------------------------------------------------------------------------------
+
+def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=False, **bd):
+    """Computes the MOC in sigma co-ordinates
+        -- IMPORTANT!!! expects da = voce * e3v (NEMO has this as voce_e3v)
+           (to do CONSERVATIVE remapping, because that is formally valid only for 
+           extensive quantities)
+        -- calls z2sig vertical co-ordinate transformation
+        -- can be chunked and output manually to split some intermediate calculations
+    sigma is just a placeholder, can be density, temperature, other depth, etc.
+    assumes dt = const, so t-avg is simply sum all data and divide by number of frames
+    
+    Do not include the mask, in order for inheriting attributes. Computes over 
+    ALL other dimensions by default; this is not a necessarily a problem until 
+    evaluation.
+    
+    *** NOTE ***
+    Inhereits the attributes of the input field. Modify this as appropriate if 
+    need be.
+    """
+    
+    # 0) define a temporary coords and grid for exclusive use with 
+    #    xgcm.transform (needs "periodic=False" and an "outer" definition for
+    #    the conservative transform option)
+    coords = {"X": {"right" : "x_f", "center":"x_c"},   # xU > xT
+              "Y": {"right" : "y_f", "center":"y_c"},   # yV > yT
+              "Z": {"center": "z_c", "outer" :"z_f"},
+              "T": {"center": "t"},
+             }
+    grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False)
+    
+    # 1) put out some useful numbers
+    nt = da.t.size # should have a t variable even if da has no t-dim
+    
+    # 2) cycle through the time, do vertical transform, then average
+    print("routine can be costly and a bit slow, have disp=True to display some progress")
+    print(" ")
+    
+    for kt in range(nt):
+        if disp:
+            print(f"working at t = {kt+1} / {nt}...")
+            
+        # interpolate onto the V grid (CDFTOOLS doesn't do this?)
+        sigma_var = grid.interp(sigma.isel(t=kt), ['Y'], boundary='extend')
+        # don't select the last one since it's land, then z_f makes sense
+        v_trans = (da * ds.vmask).isel(t=kt, z_c=slice(0, -1))
+        v_trans = v_trans.fillna(0.).rename('v_trans')
+        
+        # create object, add to variable, then take average
+        if kt == 0:
+            v_trans_sigma  = cdfz2sig(grid, ds,
+                                      v_trans,
+                                      sigma_var.isel(z_c=slice(0, -1)),
+                                      sigma_coord,
+                                      method=method, **bd) / nt
+        else:
+            v_trans_sigma += cdfz2sig(grid, ds,
+                                      v_trans,
+                                      sigma_var.isel(z_c=slice(0, -1)),
+                                      sigma_coord,
+                                      method=method, **bd) / nt
+
+    sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c").cumsum("sigma") / 1e6
+    # TODO: flip the dimension? sigma_moc -= sigma_moc.isel({"sigma" : -1})
+        
+    # end) imbue some useful variables/attributes
+    sigma_moc.attrs = da.attrs
+    sigma_moc["gphiv"] = ds.gphiv[:, 1]  # placeholder imbuement
+    if "t" in sigma_moc.dims:
+        sigma_moc = sigma_moc.transpose("t", "sigma", ...)
+    else:
+        sigma_moc = sigma_moc.transpose("sigma", ...)
+    sigma_moc.attrs["standard_name"] = "sigmamoc"
+    sigma_moc.attrs["long_name"]     = "Meridional Overturning Circulation (avg at fixed sigma)"
+    sigma_moc.attrs["units"]         = "Sv"
+
+    return sigma_moc
     
     
     
