@@ -62,9 +62,11 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
     
 #-------------------------------------------------------------------------------
 
-def cdfmoc(grid, ds, vn, **bd):
+def cdfmoc(grid, ds, voce_e3v, **bd):
     """Computes the meridional overturning circulation in depth co-ordinates,
        in a way consistent with CDFTOOLS/cdfmoc
+        -- expects voce * e3v (NEMO has this as voce_e3v); if voce_e3v or e3v 
+           are not available, manually use ds.e3v_0
     
     Expects a 3d field input on V-grid. Computes this along ALL time by default; 
     this is not a necessarily a problem until evaluation.
@@ -82,7 +84,7 @@ def cdfmoc(grid, ds, vn, **bd):
     #              2) ask for a "vvl" flag, if true and "e3v" is a variable,
     #                 load it from an input da, if not, warning and fall back to
     #                 "e3v_0"
-    moc = (vn * ds.e1v * ds.e3v_0).sum(dim="x_c")
+    moc = (voce_e3v * ds.e1v * ds.vmask).sum(dim="x_c")
 
     # 2) cumulative sum in k from TOP; sum in Z puts it onto z_f, units of Sv
     #    then removes the total integral (the last entry)
@@ -294,11 +296,12 @@ def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
     
 #-------------------------------------------------------------------------------
 
-def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=False, **bd):
+def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, method="conservative", disp=False, **bd):
     """Computes the MOC in sigma co-ordinates
-        -- IMPORTANT!!! expects da = voce * e3v (NEMO has this as voce_e3v)
+        -- IMPORTANT!!! expects voce * e3v (NEMO has this as voce_e3v)
            (to do CONSERVATIVE remapping, because that is formally valid only for 
            extensive quantities)
+        -- if voce_e3v or e3v are not available, manually use ds.e3v_0
         -- calls z2sig vertical co-ordinate transformation
         -- can be chunked and output manually to split some intermediate calculations
     sigma is just a placeholder, can be density, temperature, other depth, etc.
@@ -312,11 +315,6 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
     Inhereits the attributes of the input field. Modify this as appropriate if 
     need be.
     """
-    
-    # TODO: either 1) ask for a "voce_e3v" from the user <--- this one for now
-    #              2) ask for a "vvl" flag, if true and "e3v" is a variable,
-    #                 load it from an input da, if not, warning and fall back to
-    #                 "e3v_0"
     
     # TODO: input "grid" doesn't actually get used since it gets overwritten
     #       added so far only for consistency of inputs; do this better
@@ -332,7 +330,7 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
     grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False)
     
     # 1) put out some useful numbers
-    nt = da.t.size # should have a t variable even if da has no t-dim
+    nt = voce_e3v.t.size # should have a t variable even if da has no t-dim
     
     # 2) cycle through the time, do vertical transform, then average
     print("routine can be costly and a bit slow, have disp=True to display some progress")
@@ -348,7 +346,7 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
         # TODO: this will fail if input "da" is not full dataset because of
         #       shape mismatch; could copy some of the z2sig code in for pulling
         #       out the mask sizes
-        v_trans = (da * ds.vmask).isel(t=kt, z_c=slice(0, -1))
+        v_trans = (voce_e3v * ds.vmask).isel(t=kt, z_c=slice(0, -1))
         v_trans = v_trans.fillna(0.).rename('v_trans')
         
         # create object, add to variable, then take average
@@ -370,7 +368,6 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
     #       sigma_moc -= sigma_moc.isel({"sigma" : -1})
         
     # end) imbue some useful variables/attributes
-    sigma_moc.attrs = da.attrs
     
     # TODO: below imbuement is inconsistent if the input chunk is sliced in space
     #       throw a warning or output it properly
@@ -385,7 +382,52 @@ def cdfsigmamoc(grid, ds, da, sigma, sigma_coord, method="conservative", disp=Fa
 
     return sigma_moc
     
+
     
+#-------------------------------------------------------------------------------
+
+def cdfpsi(grid, ds, u_or_v_e3, **bd):
+    """Computes the "barotropic" streamfunction
+       -- expects a velocity multiplied by vertical grid space, either
+           uoce * e3u or voce * e3v
+       -- if uoce_e3u or e3u or similar are not available, manually use ds.e3u_0
+       -- if U-grid variable detected, will integrate in y with as minus sign
+       -- if V-grid variable detected, will integrate in x
+       -- !! be careful of boundary conditions!
+    
+    Computes along ALL other dimensions by default; this is not a necessarily a 
+    problem until evaluation.
+    
+    *** NOTE ***
+    Inhereits the attributes of the input field. Modify this as appropriate if 
+    need be.
+    """
+    
+    # 1) do integral of variable and metric along i-direction, then divide each 
+    #    other (so i-mean)
+    # W-variables treated as if it were T-variables
+ 
+    # U-variable
+    if all(x in list(u_or_v_e3.coords) for x in ["x_f", "y_c"]):
+        uoce_e3u = u_or_v_e3 * ds.umask
+        psi = -grid.cumint(uoce_e3u.sum("z_c"), "Y", **bd) / 1e6  # units of Sv
+    # V-variable
+    elif all(x in list(u_or_v_e3.coords) for x in ["x_c", "y_f"]):
+        voce_e3v = u_or_v_e3 * ds.vmask
+        psi =  grid.cumint(voce_e3v.sum("z_c"), "X", **bd) / 1e6  # units of Sv
+    else:
+        print("=== WARNING: no valid combo of (x,y) dimension grabbed, CHECK ===")
+        print(f"  the list of coords grabbed as list(ds.coords) = {list(da.coords)}")
+        return np.nan
+        
+    # end) imbue some useful variables/attributes
+    psi["glamf"] = ds.glamf[:, :]  # placeholder imbuement
+    psi["gphif"] = ds.gphif[:, :]  # placeholder imbuement
+    psi.attrs["standard_name"] = "psi"
+    psi.attrs["long_name"]     = "Barotropic streamfunction"
+    psi.attrs["units"]         = "Sv"
+        
+    return psi
     
     
     
