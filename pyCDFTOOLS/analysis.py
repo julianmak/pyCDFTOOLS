@@ -79,17 +79,17 @@ def cdfmoc(grid, ds, voce_e3v, **bd):
     # input is (z, y, x), grid_V, units of m s-1
 
     # 1) zonal integral and multiply by e3v; (z, y), grid_V and units of m3 s-1
-    # TODO: should have a vmask here for consistency
-    #       either 1) ask for a "voce_e3v" from the user 
-    #              2) ask for a "vvl" flag, if true and "e3v" is a variable,
-    #                 load it from an input da, if not, warning and fall back to
-    #                 "e3v_0"
     moc = (voce_e3v * ds.e1v * ds.vmask).sum(dim="x_c")
 
-    # 2) cumulative sum in k from TOP; sum in Z puts it onto z_f, units of Sv
-    #    then removes the total integral (the last entry)
-    moc = grid.cumsum(moc, axis="Z", **bd) / 1e6
-    moc -= moc.isel({"z_f" : -1})
+    # 2) reverse the array then cumulative sum in k (i.e. from bottom)
+    #    sum in Z puts it onto z_f, units of Sv
+    #    then flip it back
+    moc = grid.cumsum(moc.isel(z_c=slice(None, None, -1)), axis="Z", **bd) / 1e6
+
+    # do some weird acrobatics to flip it back [to replace properly with xgcm bug fix]
+    # (flip changes the z_f index, so do a force overwrite of it)
+    moc = moc.isel(z_f=slice(None, None, -1))
+    moc = moc.assign_coords(z_f=("z_f", moc.z_f.values[::-1]))
     
     # end) imbue some useful variables/attributes
     
@@ -296,7 +296,8 @@ def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
     
 #-------------------------------------------------------------------------------
 
-def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, method="conservative", disp=False, **bd):
+def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, 
+                method="conservative", sigma_coord_dens_like=True, disp=False, **bd):
     """Computes the MOC in sigma co-ordinates
         -- IMPORTANT!!! expects voce * e3v (NEMO has this as voce_e3v)
            (to do CONSERVATIVE remapping, because that is formally valid only for 
@@ -305,6 +306,8 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, method="conservative", d
         -- calls z2sig vertical co-ordinate transformation
         -- can be chunked and output manually to split some intermediate calculations
     sigma is just a placeholder, can be density, temperature, other depth, etc.
+        -- sigma_coord should be from ocean TOP to BOTTOM 
+           (low to high dens, HIGH to LOW temperature, and similar)
     assumes dt = const, so t-avg is simply sum all data and divide by number of frames
     
     Do not include the mask, in order for inheriting attributes. Computes over 
@@ -363,9 +366,17 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, method="conservative", d
                                       sigma_coord,
                                       method=method, **bd) / nt
 
-    sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c").cumsum("sigma") / 1e6
-    # TODO: flip the dimension depending on the choice of sigma variable? 
-    #       sigma_moc -= sigma_moc.isel({"sigma" : -1})
+    sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
+    
+    # 3) cumsum, with reversals as necessary (should go from bottom to top of ocean)
+    #    units of Sv
+    if sigma_coord_dens_like:
+        sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
+    sigma_moc = sigma_moc.cumsum("sigma")
+    if sigma_coord_dens_like:
+        sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
+    # (?? Don't need to flip to coordinate in this case, unlike z-moc because it's not an indexing ??) 
+    # sigma_moc = sigma_moc.assign_coords(sigma=("sigma", sigma_moc.sigma.values[::-1]))
         
     # end) imbue some useful variables/attributes
     
