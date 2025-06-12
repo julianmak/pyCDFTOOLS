@@ -4,6 +4,26 @@ My adaptations [CDFTOOLS](https://github.com/meom-group/CDFTOOLS) for Python ana
 
 This is split out from whatever is in my other [NEMO repository](https://github.com/julianmak/NEMO-related/tree/master), which is a Fortran-like way of writing things. Those won't be updated anymore.
 
+## Installation / Setup (12/06/2025)
+
+1. Create an environment called `pycdftools` from the `environment.yml` file.
+    ```
+    conda env create -f environment.yml
+    ```
+    It takes a while (~20-30 mins, depends on platform) to finish the build and installation.
+
+2. Activate the environment.
+
+    ```
+    conda activate pycdftools
+    ```
+
+3. Setup the rest using `pip`. (Note: don't use the shebang line (i.e. `#!/usr/bin/env python3`) in `pyCDFTOOLS/__init__.py`, otherwise the conda-packaged python will not be used and the `pyCDFTOOLS` will not installed correctly)
+
+    ```
+    pip install .
+    ```
+
 ## To do:
 
 - [ ] testing of DASK chunking and parallel computation

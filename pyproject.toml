@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools", "wheel", "setuptools_scm[toml]>=6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyCDFTOOLS"
+version = "0.0.1dev"
+description = "Python CDFTOOLS for analysing NEMO data"
+readme = "README.md"
+authors = [
+    {name="Julian Mak", email="jclmak@ust.hk"},
+    {name="Ho Ching Lee", email="hcleear@connect.ust.hk"}
+]
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.9"
+classifiers = [
+  "Programming Language :: Python :: 3"
+]
+dynamic = ["dependencies", "optional-dependencies"]
+keywords = ["cdftools", "nemo", "gcm", "ocean", "modelling"]
+
+
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "scipy",
+  "flake8",
+  "codecov"
+]
+
+[tool.setuptools_scm]
+write_to = "pyCDFTOOLS/_version.py"
+write_to_template = '__version__ = "{version}"'
+
+
+[tool.setuptools]
+packages = ["pyCDFTOOLS", "test"]
