@@ -44,14 +44,18 @@ def cdfcurl(grid, ds, un, vn, jk=0, **bd):
 
     # 1) calculation, puts the output onto the F-points
     if var_T:
+        area = (ds.e1f * ds.e2f) * ds.fmask.isel(z_c=z_ind)
+        area = area.where(area != 0, 1e-6)  # to avoid dividing by zero
         socurl  = (  grid.diff(vn * ds.e2v, "X", **bd) 
                    - grid.diff(un * ds.e1u, "Y", **bd) 
-                  ) / (ds.e1f * ds.e2f) * ds.fmask.isel(z_c=z_ind)
+                  ) / area
 
     elif var_W:
+        area = (ds.e1f * ds.e2f) * ds.fmask.isel(z_f=z_ind)
+        area = area.where(area != 0, 1e-6)  # to avoid dividing by zero
         socurl  = (  grid.diff(vn * ds.e2v, "X", **bd) 
                    - grid.diff(un * ds.e1u, "Y", **bd) 
-                  ) / (ds.e1f * ds.e2f) * ds.fmask.isel(z_f=z_ind)
+                  ) / area
                
     # end) imbue some useful variables/attributes
     socurl.attrs["standard_name"] = "socurl"
