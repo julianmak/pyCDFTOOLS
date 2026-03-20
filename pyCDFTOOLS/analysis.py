@@ -147,7 +147,9 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.tmask.isel(z_c=z_ind, y_c=y_ind, x_c=x_ind)
         elif var_W:
             mask = ds.tmask.isel(z_f=z_ind, y_c=y_ind, x_c=x_ind)
-        zonalmean = (da * mask).sum(dim="x_c") / (e1 * mask).sum(dim="x_c")
+        l_zonal = (e1 * mask).sum(dim="x_c")
+        l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
+        zonalmean = (da * mask).sum(dim="x_c") / l_zonal
         zonalmean["gphit"] = ds["gphit"].isel(y_c=y_ind, x_c=1)  # placeholder only
  
     # U-variable
@@ -159,7 +161,9 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.umask.isel(z_c=z_ind, y_c=y_ind, x_f=x_ind)
         elif var_W:
             mask = ds.umask.isel(z_f=z_ind, y_c=y_ind, x_f=x_ind)
-        zonalmean = (da * mask).sum(dim="x_f") / (e1 * mask).sum(dim="x_f")
+        l_zonal = (e1 * mask).sum(dim="x_f")
+        l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
+        zonalmean = (da * mask).sum(dim="x_f") / l_zonal
         zonalmean["gphiu"] = ds["gphiu"].isel(y_c=y_ind, x_f=1)  # placeholder only
 
     # V-variable
@@ -171,7 +175,9 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.vmask.isel(z_c=z_ind, y_f=y_ind, x_c=x_ind)
         elif var_W:
             mask = ds.vmask.isel(z_f=z_ind, y_f=y_ind, x_c=x_ind)
-        zonalmean = (da * mask).sum(dim="x_c") / (e1 * mask).sum(dim="x_c")
+        l_zonal = (e1 * mask).sum(dim="x_c")
+        l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
+        zonalmean = (da * mask).sum(dim="x_c") / l_zonal
         zonalmean["gphiv"] = ds["gphiv"].isel(y_f=y_ind, x_c=1)  # placeholder only
 
     # F-variable
@@ -182,8 +188,10 @@ def cdfzonalmean(grid, ds, da, **bd):
         if var_T:
             mask = ds.fmask.isel(z_c=z_ind, y_f=y_ind, x_f=x_ind)
         elif var_W:
-            mask = ds.fmask.isel(z_f=z_ind, y_f=y_ind, x_f=x_ind) 
-        zonalmean = (da * mask).sum(dim="x_f") / (e1 * mask).sum(dim="x_f")
+            mask = ds.fmask.isel(z_f=z_ind, y_f=y_ind, x_f=x_ind)
+        l_zonal = (e1 * mask).sum(dim="x_f")
+        l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
+        zonalmean = (da * mask).sum(dim="x_f") / l_zonal
         zonalmean["gphif"] = ds["gphif"].isel(y_f=y_ind, x_f=1)  # placeholder only
         
     else:
@@ -330,7 +338,7 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
               "Z": {"center": "z_c", "outer" :"z_f"},
               "T": {"center": "t"},
              }
-    grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False)
+    grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False, autoparse_metadata=False)
     
     # 1) put out some useful numbers
     nt = voce_e3v.t.size # should have a t variable even if da has no t-dim

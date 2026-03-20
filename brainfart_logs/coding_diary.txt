@@ -1,3 +1,6 @@
+# packages needed
+conda: numba
+conda-forge: xnemogcm, xgcm, gsw, gsw-xarray
 
 ## design choices
 
@@ -28,6 +31,20 @@
         -- some of the algorithm details will be different (e.g. cdfmocsig does 
         not average the tracers on to V points, though it probably should be as 
         remarked in CDFTOOLS by J-M Molines [JMM])
+
+## 20 Mar 2026
+
+* there were some warnings about improper division when calling e.g. "cdfzonalmean"
+  -- some divide by zeros, introduced intermediate variables to deal with those
+
+* included a sample notebook for replacing/tidying up mesh_mask.nc
+  -- eORCA1 recombined "mesh_mask" one seems to be screwed up
+  -- bypass this by using the read-in "domain_cfg.nc"
+     -- doesn't have mask variables, could imply those from the outputs
+     !! the "fmask" variable needs to be redone, cheating at the moment and use "tmask"
+  -- created a "domain_cfg_cleaned.cfg" that seems to run ok
+  ?? could also bypass by not using the tiled "mesh_mask" instead, and rely on
+     xnemogcm to combine it? to try this at some point
         
 ## 19 Apr 2025
 
