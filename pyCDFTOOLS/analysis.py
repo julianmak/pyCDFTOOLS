@@ -83,16 +83,15 @@ def cdfmoc(grid, ds, voce_e3v, **bd):
     # input is (z, y, x), grid_V, units of m s-1
 
     # 1) zonal integral and multiply by e3v; (z, y), grid_V and units of m3 s-1
-    #    minus sign because the sum is going to from the ocean bottom
+    #    minus sign because the sum is going from the ocean bottom to top
     #    (if summing from the top, don't have minus sign but take off the value of the total integral)
     moc = -(voce_e3v * ds.e1v * ds.vmask).sum(dim="x_c")
 
     # 2) reverse the array then cumulative sum in k (i.e. from bottom)
-    #    sum in Z puts it onto z_f, units of Sv
-    #    then flip it back
+    #    sum in Z puts it onto z_f, units of Sv...
     moc = grid.cumsum(moc.isel(z_c=slice(None, None, -1)), axis="Z", **bd) / 1e6
 
-    # do some weird acrobatics to flip it back [to replace properly with xgcm bug fix]
+    # ...flip it back [to replace properly with xgcm bug fix]
     # (flip changes the z_f index, so do a force overwrite of it)
     moc = moc.isel(z_f=slice(None, None, -1))
     moc = moc.assign_coords(z_f=("z_f", moc.z_f.values[::-1]))
@@ -363,7 +362,8 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
         # TODO: this will fail if input "da" is not full dataset because of
         #       shape mismatch; could copy some of the z2sig code in for pulling
         #       out the mask sizes
-        v_trans = (voce_e3v * ds.vmask).isel(t=kt, z_c=slice(0, -1))
+        # minus sign because the integral is going to be from bottom to the top regardless
+        v_trans = -(voce_e3v * ds.vmask).isel(t=kt, z_c=slice(0, -1))
         v_trans = v_trans.fillna(0.).rename('v_trans')
         
         # create object, add to variable, then take average
@@ -383,15 +383,16 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
     sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
     sigma_mask = sigma_moc.copy(deep=True)  # copy a mask in sigma_coord to tidy the cumsum later
     
-    # 3) cumsum, with reversals as necessary (should go from bottom to top of ocean)
+    # 3) integrating in an orientation preserving way
     #    units of Sv
+    #    if density-like, sigma = (small, big) <-> z = (top, bottom), minus sign and flip the arrays accordingly
+    #      (or don't add minus sign and don't flip, but take off the total integral)
+    #    if temperature-like, sigma = (small, big) <-> z = (bottom, top), just the minus sign but no flipping
     if sigma_coord_dens_like:
         sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
     sigma_moc = sigma_moc.cumsum("sigma")
     if sigma_coord_dens_like:
         sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
-    # (?? Don't need to flip to coordinate in this case, unlike z-moc because it's not an indexing ??) 
-    # sigma_moc = sigma_moc.assign_coords(sigma=("sigma", sigma_moc.sigma.values[::-1]))
     sigma_moc = sigma_moc.where(sigma_mask != 0, 0.0)  # wipe out the cumsum entries that should be zero
         
     # end) imbue some useful variables/attributes
