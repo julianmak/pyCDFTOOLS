@@ -32,13 +32,37 @@ conda-forge: xnemogcm, xgcm, gsw, gsw-xarray
         not average the tracers on to V points, though it probably should be as 
         remarked in CDFTOOLS by J-M Molines [JMM])
 
+## 26 Mar 2026
+
+? probably still the sign error to fix
+
+! the "takes a long time" warning in "cdfmocsig" is misleading
+  -- compilation of computation graph is fine, but it is the evaluation that
+     can be slow
+  -- would suggest to do these in manual chunks in time, e.g. call "cdfmocsig"
+     per year, output as netcdf to wipe and clear the computation graph, 
+     then re-read and average those intermediate outputs in time as necessary
+
+* added a masking in sigma space
+  -- cumsum doesn't stop when encountering zeros, so it is filling out entries more 
+     than it is supposed to (seen as vertical strips of colour in the sigmamoc plots)
+  -- create a temporary mask in the subroutine for the wiping of the entries
+     -- could code this more efficiently if done as a for loop...
+        (skip NaNs or zeroes, and only do things for non-zeroes)
+  ?? still get some garbage(?) in the nothern hemisphere high latitudes?
+     -- might be because of global integration, may be fixed with basin masking
+
+* added "method.lower()" for safety reasons
+  -- gives out an opaque error if I put in method="Conservative", when the
+     issue is xgcm expecting "conservative" all lower case
+
 ## 20 Mar 2026
 
 * there were some warnings about improper division when calling e.g. "cdfzonalmean"
   -- some divide by zeros, introduced intermediate variables to deal with those
 
 * included a sample notebook for replacing/tidying up mesh_mask.nc
-  -- eORCA1 recombined "mesh_mask" one seems to be screwed up
+  -- eORCA1 recombined "mesh_mask" output seems to be screwed up in
   -- bypass this by using the read-in "domain_cfg.nc"
      -- doesn't have mask variables, could imply those from the outputs
      !! the "fmask" variable needs to be redone, cheating at the moment and use "tmask"
