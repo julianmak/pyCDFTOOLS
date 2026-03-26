@@ -43,6 +43,13 @@ conda-forge: xnemogcm, xgcm, gsw, gsw-xarray
      per year, output as netcdf to wipe and clear the computation graph, 
      then re-read and average those intermediate outputs in time as necessary
 
+* similarly for "cdfsigmamoc", but only when the sigma coordinates is density-like
+  -- need a minus sign either way because integrating from bottom to the top
+  -- if density like then sigma = (small, big) corresponding to z = (top, bottom), 
+     so for orienation preservation would need flip, cumsum then flip back
+  -- if temperature like then sigma = (small, big) corresponding to z = (bottom, top),
+     so don't need to flip (but still need that minus sign)
+
 * added a minus sign into "cdfmoc"
   -- here summing from the bottom, so add minus sign, flip in Z, cumsum, flip it back
   -- if summing from the top, don't add minus sign, but take off the total integral
