@@ -379,6 +379,7 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
                                       method=method.lower(), **bd) / nt
 
     sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
+    sigma_mask = sigma_moc.copy(deep=True)  # copy a mask in sigma_coord to tidy the cumsum later
     
     # 3) cumsum, with reversals as necessary (should go from bottom to top of ocean)
     #    units of Sv
@@ -389,6 +390,7 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
         sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
     # (?? Don't need to flip to coordinate in this case, unlike z-moc because it's not an indexing ??) 
     # sigma_moc = sigma_moc.assign_coords(sigma=("sigma", sigma_moc.sigma.values[::-1]))
+    sigma_moc = sigma_moc.where(sigma_mask != 0, 0.0)  # wipe out the cumsum entries that should be zero
         
     # end) imbue some useful variables/attributes
     
