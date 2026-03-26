@@ -83,7 +83,9 @@ def cdfmoc(grid, ds, voce_e3v, **bd):
     # input is (z, y, x), grid_V, units of m s-1
 
     # 1) zonal integral and multiply by e3v; (z, y), grid_V and units of m3 s-1
-    moc = (voce_e3v * ds.e1v * ds.vmask).sum(dim="x_c")
+    #    minus sign because the sum is going to from the ocean bottom
+    #    (if summing from the top, don't have minus sign but take off the value of the total integral)
+    moc = -(voce_e3v * ds.e1v * ds.vmask).sum(dim="x_c")
 
     # 2) reverse the array then cumulative sum in k (i.e. from bottom)
     #    sum in Z puts it onto z_f, units of Sv

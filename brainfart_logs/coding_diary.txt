@@ -43,6 +43,11 @@ conda-forge: xnemogcm, xgcm, gsw, gsw-xarray
      per year, output as netcdf to wipe and clear the computation graph, 
      then re-read and average those intermediate outputs in time as necessary
 
+* added a minus sign into "cdfmoc"
+  -- here summing from the bottom, so add minus sign, flip in Z, cumsum, flip it back
+  -- if summing from the top, don't add minus sign, but take off the total integral
+     (last value corresponding to the integral over total depth)
+
 * added a masking in sigma space
   -- cumsum doesn't stop when encountering zeros, so it is filling out entries more 
      than it is supposed to (seen as vertical strips of colour in the sigmamoc plots)
