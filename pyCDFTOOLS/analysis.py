@@ -288,7 +288,7 @@ def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
 
     da_in_sigma = grid.transform(da * mask, "Z", sigma_coord, 
                                  target_data=sigma, 
-                                 method=method)
+                                 method=method.lower())
                                  
     # one liner for conservative transformation
     # (a ton of warnings are triggered if done this way)
@@ -370,13 +370,13 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
                                       v_trans,
                                       sigma_var.isel(z_c=slice(0, -1)),
                                       sigma_coord,
-                                      method=method, **bd) / nt
+                                      method=method.lower(), **bd) / nt
         else:
             v_trans_sigma += cdfz2sig(grid, ds,
                                       v_trans,
                                       sigma_var.isel(z_c=slice(0, -1)),
                                       sigma_coord,
-                                      method=method, **bd) / nt
+                                      method=method.lower(), **bd) / nt
 
     sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
     
