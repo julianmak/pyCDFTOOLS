@@ -312,6 +312,93 @@ def cdfz2sig(grid, ds, da, sigma, sigma_coord, method="linear", **bd):
 def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord, 
                 method="conservative", sigma_coord_dens_like=True, disp=False, **bd):
     """Computes the MOC in sigma co-ordinates
+        -- !!!IMPORTANT!!! 
+           1) the usage expects PER TIME; do the time-averaging outside of routine
+        -- 2) expects voce * e3v (NEMO has this as voce_e3v)
+           (to do CONSERVATIVE remapping, because that is formally valid only for 
+           extensive quantities)
+        -- if voce_e3v or e3v are not available, manually use ds.e3v_0
+        -- calls z2sig vertical co-ordinate transformation
+        -- can be chunked and output manually to split some intermediate calculations
+    sigma is just a placeholder, can be density, temperature, other depth, etc.
+        -- sigma_coord should be from ocean TOP to BOTTOM 
+           (low to high dens, HIGH to LOW temperature, and similar)
+    
+    Do not include the mask, in order for inheriting attributes. Computes over 
+    ALL other dimensions by default; this is not a necessarily a problem until 
+    evaluation.
+    
+    *** NOTE ***
+    Inhereits the attributes of the input field. Modify this as appropriate if 
+    need be.
+    """
+    
+    # TODO: input "grid" doesn't actually get used since it gets overwritten
+    #       added so far only for consistency of inputs; do this better
+    
+    # 0) define a temporary coords and grid for exclusive use with 
+    #    xgcm.transform (needs "periodic=False" and an "outer" definition for
+    #    the conservative transform option)
+    coords = {"X": {"right" : "x_f", "center":"x_c"},   # xU > xT
+              "Y": {"right" : "y_f", "center":"y_c"},   # yV > yT
+              "Z": {"center": "z_c", "outer" :"z_f"},
+              "T": {"center": "t"},
+             }
+    grid = xgcm.Grid(ds, coords=coords, metrics=xn.get_metrics(ds), periodic=False, autoparse_metadata=False)
+    
+    # 2) do vertical transform and output
+            
+    # interpolate onto the V grid (CDFTOOLS doesn't do this...?)
+    sigma_var = grid.interp(sigma, ['Y'], boundary='extend')
+    # don't select the last one since it's land, then z_f makes sense
+    # TODO: this will fail if input "da" is not full dataset because of
+    #       shape mismatch; could copy some of the z2sig code in for pulling
+    #       out the mask sizes
+    # minus sign because the integral is going to be from bottom to the top regardless
+    v_trans = -(voce_e3v * ds.vmask).isel(z_c=slice(0, -1))
+    v_trans = v_trans.fillna(0.).rename('v_trans')
+    
+    v_trans_sigma  = cdfz2sig(grid, ds,
+                              v_trans,
+                              sigma_var.isel(z_c=slice(0, -1)),
+                              sigma_coord,
+                              method=method.lower(), **bd)
+
+    sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
+    sigma_mask = sigma_moc.copy(deep=True)  # copy a mask in sigma_coord to tidy the cumsum later
+    
+    # 3) integrating in an orientation preserving way
+    #    units of Sv
+    #    if density-like, sigma = (small, big) <-> z = (top, bottom), minus sign and flip the arrays accordingly
+    #      (or don't add minus sign and don't flip, but take off the total integral)
+    #    if temperature-like, sigma = (small, big) <-> z = (bottom, top), just the minus sign but no flipping
+    if sigma_coord_dens_like:
+        sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
+    sigma_moc = sigma_moc.cumsum("sigma")
+    if sigma_coord_dens_like:
+        sigma_moc = sigma_moc.isel(sigma=slice(None, None, -1))
+    sigma_moc = sigma_moc.where(sigma_mask != 0, 0.0)  # wipe out the cumsum entries that should be zero
+        
+    # end) imbue some useful variables/attributes
+    
+    # TODO: below imbuement is inconsistent if the input chunk is sliced in space
+    #       throw a warning or output it properly
+    sigma_moc["gphiv"] = ds.gphiv[:, 1]  # placeholder imbuement
+    if "t" in sigma_moc.dims:
+        sigma_moc = sigma_moc.transpose("t", "sigma", ...)
+    else:
+        sigma_moc = sigma_moc.transpose("sigma", ...)
+    sigma_moc.attrs["standard_name"] = "sigmamoc"
+    sigma_moc.attrs["long_name"]     = "Meridional Overturning Circulation (avg at fixed sigma)"
+    sigma_moc.attrs["units"]         = "Sv"
+
+    return sigma_moc
+    
+#-------------------------------------------------------------------------------
+
+def cdfsigmamoc_dummy(grid, ds, voce_e3v, sigma, sigma_coord, 
+                method="conservative", sigma_coord_dens_like=True, disp=False, **bd):
+    """Computes the MOC in sigma co-ordinates
         -- IMPORTANT!!! expects voce * e3v (NEMO has this as voce_e3v)
            (to do CONSERVATIVE remapping, because that is formally valid only for 
            extensive quantities)
@@ -351,34 +438,16 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
     # 2) cycle through the time, do vertical transform, then average
     print("routine can be costly and a bit slow, have disp=True to display some progress")
     print(" ")
-    
-    for kt in range(nt):
-        if disp:
-            print(f"working at t = {kt+1} / {nt}...")
-            
-        # interpolate onto the V grid (CDFTOOLS doesn't do this...?)
-        sigma_var = grid.interp(sigma.isel(t=kt), ['Y'], boundary='extend')
-        # don't select the last one since it's land, then z_f makes sense
-        # TODO: this will fail if input "da" is not full dataset because of
-        #       shape mismatch; could copy some of the z2sig code in for pulling
-        #       out the mask sizes
-        # minus sign because the integral is going to be from bottom to the top regardless
-        v_trans = -(voce_e3v * ds.vmask).isel(t=kt, z_c=slice(0, -1))
-        v_trans = v_trans.fillna(0.).rename('v_trans')
-        
-        # create object, add to variable, then take average
-        if kt == 0:
-            v_trans_sigma  = cdfz2sig(grid, ds,
-                                      v_trans,
-                                      sigma_var.isel(z_c=slice(0, -1)),
-                                      sigma_coord,
-                                      method=method.lower(), **bd) / nt
-        else:
-            v_trans_sigma += cdfz2sig(grid, ds,
-                                      v_trans,
-                                      sigma_var.isel(z_c=slice(0, -1)),
-                                      sigma_coord,
-                                      method=method.lower(), **bd) / nt
+
+    sigma_var = grid.interp(sigma, ['Y'], boundary='extend')
+    # sigma_var = grid.interp(sigma, ['Y'])
+    v_trans = -(voce_e3v * ds.vmask).isel(z_c=slice(0, -1))
+    v_trans = v_trans.fillna(0.).rename('v_trans')
+    v_trans_sigma  = cdfz2sig(grid, ds,
+                              v_trans,
+                              sigma_var.isel(z_c=slice(0, -1)),
+                              sigma_coord,
+                              method=method.lower(), **bd)
 
     sigma_moc = (v_trans_sigma * ds.e1v).sum(dim="x_c") / 1e6
     sigma_mask = sigma_moc.copy(deep=True)  # copy a mask in sigma_coord to tidy the cumsum later
@@ -409,8 +478,6 @@ def cdfsigmamoc(grid, ds, voce_e3v, sigma, sigma_coord,
     sigma_moc.attrs["units"]         = "Sv"
 
     return sigma_moc
-    
-
     
 #-------------------------------------------------------------------------------
 

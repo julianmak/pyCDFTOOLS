@@ -32,9 +32,24 @@ conda-forge: xnemogcm, xgcm, gsw, gsw-xarray
         not average the tracers on to V points, though it probably should be as 
         remarked in CDFTOOLS by J-M Molines [JMM])
 
-## 26 Mar 2026
+## 19 Apr 2026
 
-? probably still the sign error to fix
+* some weird thing about the jaggedty nature of the computed cdfmocsig
+  -- probably something weird with how addition of dataarray is done
+     -- if you output data arrays frame by frame, and then sum it up outside
+        then you get the right answer
+     -- comparable to if you do not do a time loop in cdfmocsig, and rely on
+        cdfz2sig to match the co-ordinate transformation accordingly
+        -- minor mismatches only at the last column, otherwise identical result
+        -- as written there is a complaint about dimension mismatch, and anything
+           that is less than full time slice bugs out
+  ?? probably do time loop outside of the cdfmocsig routine and output with
+     time dimension in some way
+     -- can merge into one dataarray to output
+     -- can average or rolling average it also
+     -- requires a bit more user involvement
+
+## 26 Mar 2026
 
 ! the "takes a long time" warning in "cdfmocsig" is misleading
   -- compilation of computation graph is fine, but it is the evaluation that
