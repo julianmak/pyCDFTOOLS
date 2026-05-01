@@ -154,7 +154,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.tmask.isel(z_f=z_ind, y_c=y_ind, x_c=x_ind)
         l_zonal = (e1 * mask).sum(dim="x_c")
         l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
-        zonalmean = (da * mask).sum(dim="x_c") / l_zonal
+        zonalmean = (da * e1 * mask).sum(dim="x_c") / l_zonal
         zonalmean["gphit"] = ds["gphit"].isel(y_c=y_ind, x_c=1)  # placeholder only
  
     # U-variable
@@ -168,7 +168,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.umask.isel(z_f=z_ind, y_c=y_ind, x_f=x_ind)
         l_zonal = (e1 * mask).sum(dim="x_f")
         l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
-        zonalmean = (da * mask).sum(dim="x_f") / l_zonal
+        zonalmean = (da * e1 * mask).sum(dim="x_f") / l_zonal
         zonalmean["gphiu"] = ds["gphiu"].isel(y_c=y_ind, x_f=1)  # placeholder only
 
     # V-variable
@@ -182,7 +182,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.vmask.isel(z_f=z_ind, y_f=y_ind, x_c=x_ind)
         l_zonal = (e1 * mask).sum(dim="x_c")
         l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
-        zonalmean = (da * mask).sum(dim="x_c") / l_zonal
+        zonalmean = (da * e1 * mask).sum(dim="x_c") / l_zonal
         zonalmean["gphiv"] = ds["gphiv"].isel(y_f=y_ind, x_c=1)  # placeholder only
 
     # F-variable
@@ -196,7 +196,7 @@ def cdfzonalmean(grid, ds, da, **bd):
             mask = ds.fmask.isel(z_f=z_ind, y_f=y_ind, x_f=x_ind)
         l_zonal = (e1 * mask).sum(dim="x_f")
         l_zonal = l_zonal.where(l_zonal != 0, 1e-6)  # to avoid dividing by zero
-        zonalmean = (da * mask).sum(dim="x_f") / l_zonal
+        zonalmean = (da * e1 * mask).sum(dim="x_f") / l_zonal
         zonalmean["gphif"] = ds["gphif"].isel(y_f=y_ind, x_f=1)  # placeholder only
         
     else:
