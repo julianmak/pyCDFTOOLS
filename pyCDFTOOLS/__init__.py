@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# #!/usr/bin/env python3
 
 """
 Collection of routines to analyse and process NEMO data, using the xgcm
@@ -14,3 +14,8 @@ point.
 
 import xarray as xr
 import glob, sys
+
+from .analysis import *
+from .cosmetics import *
+from .eos import *
+from .in_out import *

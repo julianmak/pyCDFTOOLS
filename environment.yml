@@ -1,0 +1,23 @@
+name: pycdftools
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.9
+  - setuptools>=41.2
+  - ipython
+  - jupyter
+  - jupyterlab
+  - notebook
+  - xesmf
+  - numpy
+  - matplotlib
+  - xarray>=0.20.0
+  - pip
+  - pip:
+    - pytest
+    - dask
+    - netCDF4
+    - scipy
+    - cartopy
+    - xgcm
+    - xnemogcm
